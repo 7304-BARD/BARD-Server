@@ -1,0 +1,7 @@
+
+
+[Bb]uild/
+[Nn]ode_modules/
+*.DS_Store
+.pub/
+

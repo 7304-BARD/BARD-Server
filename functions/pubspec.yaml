@@ -1,0 +1,27 @@
+name: myproject_functions
+description: My project functions
+version: 0.0.1
+
+environment:
+  sdk: '>=1.20.1 <2.0.0'
+
+dependencies:
+  # Firebase Functions bindings
+  firebase_functions_interop: ^0.0.3
+  # Node bindings required to compile a nice-looking JS file for Node.
+  # Also provides access to globals like `require` and `exports`.
+  node_interop: ^0.0.4
+  async_loader: ^0.1.1
+  firebase_auth: ^0.5.3
+  firebase_database: ^0.4.1
+  firebase_messaging: ^0.2.1
+  html: ^0.13.3
+  meta: ^1.1.2
+  path_provider: ^0.4.0
+  tuple: ^1.0.1
+  url_launcher: ^3.0.0
+  sembast: ^1.7.0
+
+transformers:
+  - $dart2js
+  - node_interop # This transformer must go after $dart2js
