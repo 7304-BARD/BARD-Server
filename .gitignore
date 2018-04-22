@@ -3,6 +3,7 @@
 pubspec.lock
 firebase-debug.log
 package-lock.json
+index.js
 
 .packages
 [Bb]uild/
