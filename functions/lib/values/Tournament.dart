@@ -1,5 +1,5 @@
 import 'package:meta/meta.dart';
-import 'package:bin/dates.dart';
+import 'package:myproject_functions/Dates.dart';
 
 class Tournament {
   final String title;

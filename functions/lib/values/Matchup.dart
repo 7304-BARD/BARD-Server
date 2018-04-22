@@ -1,6 +1,6 @@
 import 'package:meta/meta.dart';
 
-import 'package:bin/values/Team.dart';
+import 'package:myproject_functions/values/Team.dart';
 
 /// A single game played in a tournament.
 @immutable

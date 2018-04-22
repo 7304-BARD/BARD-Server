@@ -1,5 +1,8 @@
+.idea
+.dart_tool
+pubspec.lock
 
-
+.packages
 [Bb]uild/
 [Nn]ode_modules/
 *.DS_Store

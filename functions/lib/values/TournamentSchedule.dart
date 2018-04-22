@@ -1,7 +1,7 @@
-import 'package:bin/values/Matchup.dart';
-import 'package:bin/values/Player.dart';
-import 'package:bin/values/Team.dart';
-import 'package:bin/values/Tournament.dart';
+import 'package:myproject_functions/values/Matchup.dart';
+import 'package:myproject_functions/values/Player.dart';
+import 'package:myproject_functions/values/Team.dart';
+import 'package:myproject_functions/values/Tournament.dart';
 import 'package:meta/meta.dart';
 
 @immutable

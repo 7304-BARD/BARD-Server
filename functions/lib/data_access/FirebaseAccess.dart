@@ -1,10 +1,8 @@
 import 'dart:async';
 
-import 'package:bin/misc.dart';
-import 'package:bin/values/Player.dart';
-import 'package:bin/values/TournamentSchedule.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
+import 'package:myproject_functions/misc.dart';
+import 'package:myproject_functions/values/Player.dart';
+import 'package:myproject_functions/values/TournamentSchedule.dart';
 
 class FirebaseAccess {
   // reference to the Firebase root

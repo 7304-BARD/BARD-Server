@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:bin/misc.dart';
-import 'package:bin/data_access/FirebaseAccess.dart';
-import 'package:bin/data_access/PlayerCache.dart';
+import 'package:myproject_functions/misc.dart';
+import 'package:myproject_functions/data_access/FirebaseAccess.dart';
+import 'package:myproject_functions/data_access/PlayerCache.dart';
 import 'package:html/dom.dart';
 import 'package:meta/meta.dart';
 import 'package:tuple/tuple.dart';
