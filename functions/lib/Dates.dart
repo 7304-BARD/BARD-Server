@@ -39,9 +39,11 @@ abstract class Dates {
   }
 
   static DateTime parsePGTime(DateTime day, String s) {
-    final match = new RegExp(r'\s*^(\d?\d):(\d\d)\s*(A|P)M\s*$').firstMatch(s);
+    final match =
+        new RegExp(r'\s*^(\d?\d):?(\d?\d?)\s*(A|P)M\s*$').firstMatch(s);
+    final minute = match[2] == '' ? 0 : int.parse(match[2]);
     return new DateTime(day.year, day.month, day.day,
-        _delocalizeHour(match[1], match[3]), int.parse(match[2]));
+        _delocalizeHour(match[1], match[3]), minute);
   }
 
   static const monthAbbrevs = const [
