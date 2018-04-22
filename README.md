@@ -12,7 +12,7 @@ Firebase Functions we wish to export.
 
 `npm install firebase-functions@latest firebase-admin@latest --save`
 
-`npm install -g firebase-tools
+`npm install -g firebase-tools`
 
 `firebase login`
 
