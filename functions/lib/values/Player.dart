@@ -1,8 +1,3 @@
-import 'dart:async';
-
-import 'package:myproject_functions/misc.dart';
-import 'package:myproject_functions/data_access/FirebaseAccess.dart';
-import 'package:myproject_functions/data_access/PlayerCache.dart';
 import 'package:html/dom.dart';
 import 'package:meta/meta.dart';
 import 'package:tuple/tuple.dart';
@@ -30,12 +25,6 @@ class Player implements Comparable<Player> {
 
   Player(this.pgid, Document html) {
     populate(html);
-  }
-
-  Future<Null> populateAsync() async {
-    final pc = new PlayerCache();
-    await pc.init();
-    await pc.getPlayerMap(pgid).then((m) => populateFromMap(m));
   }
 
   static String _textOrById(Document html, String id, [String def]) =>
@@ -172,41 +161,9 @@ class Player implements Comparable<Player> {
     return details;
   }
 
-  Future<bool> isWatched() async {
-    if (watchlist == null) watchlist = await FirebaseAccess.isWatched(pgid);
-    return watchlist;
-  }
-
   // watchlistRank may be null, as for unwatched players.
   // We order such players last.
   int compareTo(Player p) => watchlistRank == null
       ? 1
       : p.watchlistRank == null ? -1 : watchlistRank.compareTo(p.watchlistRank);
-
-  /// Updates [watchlistRank] to place this between [before] and [after].
-  ///
-  /// Returns true if the entire watchlist needs to be re-ranked.
-  /// Normally, we avoid this, since each update must be written to FireBase.
-  /// See [updateWatchlistRanks].
-  Future<bool> updateWatchlistRank(Player before, Player after) async {
-    int beforeRank = before?.watchlistRank ?? -0x20000000;
-    int afterRank = after?.watchlistRank ?? 0x1fffffff;
-    watchlistRank = average2(beforeRank, afterRank);
-    if (watchlistRank == beforeRank || watchlistRank == afterRank) return true;
-
-    await FirebaseAccess.updateWLRank(this);
-    return false;
-  }
-
-  /// Updates [watchlistRank] for every watchlist player.
-  ///
-  /// We spread the players across the available namespace,
-  /// to allow efficient insertions when a single player is moved.
-  static Future<Null> updateWatchlistRanks(List<Player> watchlist) async {
-    range(watchlist.length).forEach((int i) {
-      watchlist[i].watchlistRank =
-          (i + 1) * (0x1fffffff ~/ (watchlist.length + 2));
-    });
-    await Future.wait(watchlist.map(FirebaseAccess.updateWLRank));
-  }
 }

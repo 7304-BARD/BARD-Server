@@ -1,6 +1,8 @@
 .idea
 .dart_tool
 pubspec.lock
+firebase-debug.log
+package-lock.json
 
 .packages
 [Bb]uild/
