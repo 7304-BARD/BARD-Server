@@ -4,7 +4,7 @@ void main() async {
   final start = new DateTime.now();
   print("$start");
 
-  await dpgsUpdateTournamentSchedules();
+  await dpgsFetchTournamentSchedules();
 
   final finish = new DateTime.now();
   print("$start");

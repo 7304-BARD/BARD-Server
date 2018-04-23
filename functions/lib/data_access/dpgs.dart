@@ -11,7 +11,10 @@ import 'package:myproject_functions/values/Tournament.dart';
 import 'package:myproject_functions/values/TournamentSchedule.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart';
+import 'package:pool/pool.dart';
 import 'package:tuple/tuple.dart';
+
+final _connectionPool = new Pool(4);
 
 Future<Document> _fetchResource(Uri uri) async {
   try {
@@ -25,7 +28,8 @@ Future<Document> _fetchResource(Uri uri) async {
 }
 
 Future<Document> _fetchPGRaw(String res, [Map<String, String> params]) =>
-    _fetchResource(new Uri.https('www.perfectgame.org', res, params));
+    _connectionPool.withResource(() =>
+        _fetchResource(new Uri.https('www.perfectgame.org', res, params)));
 
 Iterable<E> _stride<E>(Iterable<E> it, int stride) sync* {
   while (it.isNotEmpty) {
