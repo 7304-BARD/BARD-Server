@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:http/http.dart' as http;
 
-import 'package:myproject_functions/Dates.dart';
-import 'package:myproject_functions/data_access/FirebaseAccess.dart';
+import 'package:myproject_functions/dates.dart';
 import 'package:myproject_functions/values/Matchup.dart';
 import 'package:myproject_functions/values/Player.dart';
 import 'package:myproject_functions/values/Team.dart';
@@ -18,6 +18,7 @@ final _connectionPool = new Pool(4);
 
 Future<Document> _fetchResource(Uri uri) async {
   try {
+    print("$uri");
     final request = await new HttpClient().getUrl(uri);
     final response = await request.close();
     final body = await response.transform(const Utf8Codec().decoder).join();
@@ -27,9 +28,26 @@ Future<Document> _fetchResource(Uri uri) async {
   }
 }
 
+Future<Document> _postResource(Uri uri, Map<String, String> params) async {
+  try {
+    print("$uri");
+    final response = await http.post(uri, body: params);
+    print("response status code: ${response.statusCode}");
+    return parse(response.body);
+  } catch (e) {
+    print("Error: $e");
+    rethrow;
+  }
+}
+
 Future<Document> _fetchPGRaw(String res, [Map<String, String> params]) =>
     _connectionPool.withResource(() =>
         _fetchResource(new Uri.https('www.perfectgame.org', res, params)));
+
+Future<Document> _postPGRaw(String res, Map<String, String> params,
+        [Map<String, String> querypParams]) =>
+    _connectionPool.withResource(() => _postResource(
+        new Uri.https('www.perfectgame.org', res, querypParams), params));
 
 Iterable<E> _stride<E>(Iterable<E> it, int stride) sync* {
   while (it.isNotEmpty) {
@@ -55,6 +73,10 @@ Future<Document> _performSearch(String q) =>
 Future<Document> _fetchTournamentsPage() =>
     _fetchPGRaw('Schedule/Default.aspx', {'Type': 'Tournaments'});
 
+Future<Document> _postTournamentsPage(Map<String, String> params) {
+  return _postPGRaw('Schedule/Default.aspx', params, {'Type': 'Tournaments'});
+}
+
 Iterable<Element> _getPlayerKeyedTableAnchors(Document d) =>
     d.querySelectorAll('tr a[href*="Playerprofile.aspx"]');
 
@@ -71,8 +93,24 @@ Iterable<Element> _getEventBoxes(Document d) => _stride(
 Future<Document> _fetchT50Page(String year) =>
     _fetchPGRaw('Rankings/Players/NationalRankings.aspx', {'gyear': year});
 
-Future<Iterable<Tournament>> dpgsFetchTournamentsData() async =>
-    _getEventBoxes(await _fetchTournamentsPage()).map(_getEventData);
+Future<Iterable<Tournament>> dpgsFetchTournamentsData(
+    {Map<String, String> params = null}) async {
+  final doc = await _fetchTournamentsPage();
+  if (params != null) {
+    dpgsScrapeTournamentPostParameters(doc, params);
+  }
+  return _getEventBoxes(doc).map(_getEventData);
+}
+
+Future<Iterable<Tournament>> dpgsPostTournamentsData(
+    Map<String, String> params) async {
+  final doc = await _postTournamentsPage(params);
+  dpgsScrapeTournamentPostParameters(doc, params);
+
+  print("doc.text: \n\n ${doc.text} \n\n");
+
+  return _getEventBoxes(doc).map(_getEventData);
+}
 
 Future<Document> dpgsFetchTournamentTeamPage(Team t) =>
     _fetchPGRaw('Events/Tournaments/Teams/Default.aspx', {'team': t.id});
@@ -182,12 +220,61 @@ Future<TournamentSchedule> dpgsFetchScheduleForTournament(Tournament t) async {
       tournament: t, rosters: rosters, matchups: matchups);
 }
 
-Future<List<TournamentSchedule>> dpgsFetchTournamentSchedules() async =>
-    Future.wait(
-        (await dpgsFetchTournamentsData()).map(dpgsFetchScheduleForTournament));
+Future<List<TournamentSchedule>> dpgsFetchTournamentSchedules(
+        {Map<String, String> params = null}) async =>
+    Future.wait((await dpgsFetchTournamentsData(params: params))
+        .map(dpgsFetchScheduleForTournament));
 
-Future<Null> dpgsUpdateTournamentSchedules() async =>
-    FirebaseAccess.putTournamentSchedules(await dpgsFetchTournamentSchedules());
+Future<List<TournamentSchedule>> dpgsPostTournamentSchedules(
+        Map<String, String> params) async =>
+    Future.wait((await dpgsPostTournamentsData(params))
+        .map(dpgsFetchScheduleForTournament));
+
+Future<Map<DateTime, List<TournamentSchedule>>> dpgsGetTournamentSchedulesMap(
+    [int nMonthsToScrape = 1]) async {
+  Map<String, String> postParameters = dpgsGetDefaultTournamentPostParameters();
+  final months = dpgsGetTournamentFilterMonths();
+
+  Future<List<TournamentSchedule>> postMonth(DateTime nextMonth) async {
+    final monthKey = Dates.months[nextMonth.month - 1];
+    final monthValue = months[monthKey];
+    postParameters["__EVENTTARGET"] = monthValue;
+    return await dpgsPostTournamentSchedules(postParameters);
+  }
+
+  List<TournamentSchedule> schedules =
+      await dpgsFetchTournamentSchedules(params: postParameters);
+
+  DateTime key = new DateTime.now();
+  key = new DateTime(key.year, key.month);
+
+  Map<DateTime, List<TournamentSchedule>> table = {};
+  table[key] = schedules;
+
+  if (nMonthsToScrape <= 1) {
+    return table;
+  }
+
+  for (int i = 1; i < nMonthsToScrape; ++i) {
+    final nextMonth = Dates.nextMonth(key);
+
+    if (Dates.isSameYear(key, nextMonth)) {
+      table[nextMonth] = await postMonth(nextMonth);
+    } else {
+      // We have to update the year first
+      postParameters["__EVENTTARGET"] = "ctl00\$ContentPlaceHolder1\$ddlYear";
+      postParameters["ctl00\$ContentPlaceHolder1\$ddlYear"] =
+          "${nextMonth.year}";
+      await dpgsPostTournamentSchedules(postParameters);
+
+      table[nextMonth] = await postMonth(nextMonth);
+    }
+
+    key = nextMonth;
+  }
+
+  return table;
+}
 
 Tuple2<String, String> _getIdName(Element e) => new Tuple2(_getID(e), e.text);
 
@@ -228,4 +315,105 @@ Tournament _getEventData(Element ebox) {
       isGroup: anchor.attributes['href'].contains('Grouped'),
       date:
           ebox.querySelector('div[style="font-weight:bold; float:left"]').text);
+}
+
+Future<Map<String, String>> dpgsGetTournamentFilterYears() async {
+  final tournamentDocument = await _fetchTournamentsPage();
+  return dpgsScrapeTournamentOptionTextValues(
+      tournamentDocument, "#ContentPlaceHolder1_ddlYear");
+}
+
+// No need to actually scrape this.
+Map<String, String> dpgsGetTournamentFilterMonths() => {
+      "January": "ctl00\$ContentPlaceHolder1\$lbFirst",
+      "February": "ctl00\$ContentPlaceHolder1\$lbSecond",
+      "March": "ctl00\$ContentPlaceHolder1\$lbThird",
+      "April": "ctl00\$ContentPlaceHolder1\$lbFourth",
+      "May": "ctl00\$ContentPlaceHolder1\$lbFifth",
+      "June": "ctl00\$ContentPlaceHolder1\$lbSixth",
+      "July": "ctl00\$ContentPlaceHolder1\$lbSeventh",
+      "August": "ctl00\$ContentPlaceHolder1\$lbEighth",
+      "September": "ctl00\$ContentPlaceHolder1\$lbNinth",
+      "October": "ctl00\$ContentPlaceHolder1\$lbTenth",
+      "November": "ctl00\$ContentPlaceHolder1\$lbEleventh",
+      "December": "ctl00\$ContentPlaceHolder1\$lbTwelveth"
+    };
+
+// No need to actually scrape this.
+Map<String, String> dpgsGetDefaultTournamentPostParameters() => {
+      "__ASYNCPOST": "false",
+      "__EVENTARGUMENT": "",
+      "__EVENTTARGET": "",
+      "__EVENTVALIDATION": "",
+      "__LASTFOCUS": "",
+      "__VIEWSTATE": "",
+      "__VIEWSTATEGENERATOR": "",
+      "ctl00\$ContentPlaceHolder1\$ddlAgeDivision": "0",
+      "ctl00\$ContentPlaceHolder1\$ddlState": "ZZ",
+      "ctl00\$ContentPlaceHolder1\$ddlYear": Dates.getCurrentYear(),
+      "ctl00\$ContentPlaceHolder1\$rblTournaments": "1,2,3"
+    };
+
+// Can be used to scrape years, divisions, states, ect for filtering tournaments.
+Map<String, String> dpgsScrapeTournamentOptionTextValues(
+    Document doc, String id) {
+  Map<String, String> output = new Map<String, String>();
+  doc.querySelector(id)?.querySelectorAll("option")?.forEach((option) {
+    final text = option.text ?? "";
+    final value = option.attributes["value"] ?? "";
+
+    if (text.isNotEmpty && value.isNotEmpty) {
+      output[text] = value;
+    }
+  });
+
+  return output;
+}
+
+// Unfortunately, we need to pass the postParameters by reference.
+void dpgsScrapeTournamentPostParameters(
+    Document doc, Map<String, String> postParameters) {
+  // Do NOT get rid of these helper functions!
+  // The attributes map can be null, so doing a simple attributes["value"] will cause a crash.
+  // The putIfAbsent method returns null for empty strings for some reason.
+  String getAttributeValue(String id) {
+    final attributes = doc.getElementById(id)?.attributes;
+    return (attributes != null) ? attributes["value"] ?? "" : "";
+  }
+
+  String getSelectedAttributeValue(String id, {String defaultValue = ""}) {
+    final attributes = doc
+        .getElementById(id)
+        ?.querySelector("option[selected='selected']")
+        ?.attributes;
+
+    return (attributes != null)
+        ? attributes["value"] ?? defaultValue
+        : defaultValue;
+  }
+
+  postParameters["__EVENTARGUMENT"] = getAttributeValue("__EVENTARGUMENT");
+
+  postParameters["__EVENTTARGET"] = getAttributeValue("__EVENTTARGET");
+
+  postParameters["__EVENTVALIDATION"] = getAttributeValue("__EVENTVALIDATION");
+
+  postParameters["__VIEWSTATE"] = getAttributeValue("__VIEWSTATE");
+
+  postParameters["__VIEWSTATEGENERATOR"] =
+      getAttributeValue("__VIEWSTATEGENERATOR");
+
+  postParameters["ctl00\$ContentPlaceHolder1\$ddlYear"] =
+      getSelectedAttributeValue("ContentPlaceHolder1_ddlYear",
+          defaultValue: Dates.getCurrentYear());
+
+  // ZZ decodes to all states.
+  postParameters["ctl00\$ContentPlaceHolder1\$ddlState"] =
+      getSelectedAttributeValue("ContentPlaceHolder1_ddlState",
+          defaultValue: "ZZ");
+
+  // 0 decodes to all age divisions.
+  postParameters["ctl00\$ContentPlaceHolder1\$ddlAgeDivision"] =
+      getSelectedAttributeValue("ContentPlaceHolder1_ddlAgeDivision",
+          defaultValue: "0");
 }
