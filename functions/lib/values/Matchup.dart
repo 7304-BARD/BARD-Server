@@ -4,7 +4,7 @@ import 'package:myproject_functions/values/Team.dart';
 
 /// A single game played in a tournament.
 @immutable
-class Matchup implements Comparable<Matchup> {
+class Matchup {
   final String gameid;
   final DateTime playtime;
   final String location; // a specific field or complex
@@ -18,9 +18,6 @@ class Matchup implements Comparable<Matchup> {
       @required this.teams,
       this.maplink});
 
-  // We sort by playtime for display, such as in DayPlanner.
-  int compareTo(Matchup m) => playtime.compareTo(m.playtime);
-
   Map<String, dynamic> toMap() => {
         'gameid': gameid,
         'playtime': playtime.toString(),
@@ -28,11 +25,4 @@ class Matchup implements Comparable<Matchup> {
         'teams': teams.map((t) => t.toMap()).toList(),
         'maplink': maplink
       };
-
-  static Matchup fromMap(dynamic m) => new Matchup(
-      gameid: m['gameid'],
-      playtime: DateTime.parse(m['playtime']),
-      location: m['location'],
-      teams: m['teams']?.map<Team>(Team.fromMap)?.toList() ?? <Team>[],
-      maplink: m['maplink']);
 }

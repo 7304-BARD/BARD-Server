@@ -7,7 +7,7 @@ void main() async {
   final start = new DateTime.now();
   print("$start");
 
-  final map = await dpgsGetTournamentSchedulesMap(6);
+  final map = await dpgsGetTournamentSchedulesMap(2);
   await _putTournamentSchedules(map);
 
   final finish = new DateTime.now();
